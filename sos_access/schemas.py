@@ -4,47 +4,7 @@ import xmltodict
 
 ALLOWED_STATUS_CODES = [0, 1, 2, 3, 4, 5, 7, 9, 10, 99, 100, 101]
 
-
-class IncorrectlyConfigured(Exception):
-    """The client is incorrectly configured"""
-    pass
-
-
-class SOSAccessSession:
-    #TODO: how to handle secondary receiver?
-    def __init__(self, client):
-        self.client = client
-
-    def __enter__(self):
-        # create socket
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # close socket
-        # handle and reraise exceptions
-        pass
-
-
-
-class Client:
-    def __init__(self, transmitter_code, transmitter_type, authentication,
-                 receiver_id, receiver_address, secondary_receiver_address=None,
-                 force_single_receiver=False, use_tls=False):
-        self.transmitter_code = transmitter_code
-        self.transmitter_type = transmitter_type
-        self.authentication = authentication
-        self.receiver_id = receiver_id
-        self.receiver_address = receiver_address
-        self.secondary_receiver_address = secondary_receiver_address
-        self.force_single_receiver = force_single_receiver
-        self.use_tls = use_tls
-
-        if self.secondary_receiver_address is None and not force_single_receiver:
-            raise IncorrectlyConfigured(
-                'Both primary and secondary receiver address is needed.')
-
-
-
+# TODO: write tests for all schemas.
 
 class SOSAccessRequest:
     pass
@@ -72,6 +32,10 @@ class AlarmRequest(SOSAccessRequest):
         self.detector_text = detector_text
         self.additional_info = additional_info
         self.position = position
+
+    def __repr__(self):
+        # TODO: better repr!
+        return f'{self.__class__}(event_code={self.event_code})'
 
 
 class AlarmResponse(SOSAccessRequest):
@@ -235,14 +199,13 @@ class AlarmResponseSchema(SOSAccessSchema):
     info = marshmallow.fields.String(required=True,
                                      validate=[Length(min=1, max=255)])
     arrival_time = marshmallow.fields.DateTime(allow_none=True,
-                                               data_key='arrivaltime')
+                                               data_key='arrivaltime', format='rfc')
 
     class Meta:
         ordered = True
 
 
 # Request new authentication
-
 
 class NewAuthRequestSchema(SOSAccessSchema):
     __envelope__ = 'requestnewauthentication'
@@ -256,7 +219,7 @@ class NewAuthRequestSchema(SOSAccessSchema):
         Length(min=1, max=15)], data_key='transmittercode')
     transmitter_type = marshmallow.fields.String(required=True,
                                                  validate=[Length(equal=5)],
-                                                 data_key='trensmittertype')
+                                                 data_key='transmittertype')
 
     class Meta:
         ordered = True
