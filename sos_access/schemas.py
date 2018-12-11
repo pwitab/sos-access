@@ -2,9 +2,12 @@ import marshmallow
 from marshmallow.validate import Length, OneOf
 import xmltodict
 
-ALLOWED_STATUS_CODES = [0, 1, 2, 3, 4, 5, 7, 9, 10, 99, 100, 101]
+ALLOWED_STATUS_CODES = [0, 1, 2, 3, 4, 5, 7, 9, 10, 98, 99, 100, 101]
+
+ALARM_TYPES = ['AL', 'RE']
 
 # TODO: write tests for all schemas.
+
 
 class SOSAccessRequest:
     pass
@@ -59,11 +62,13 @@ class NewAuthRequest(SOSAccessRequest):
 
 class NewAuthResponse(SOSAccessRequest):
 
-    def __init__(self, status, info, new_authentication, reference=None):
+    def __init__(self, status, info, new_authentication, arrival_time=None,
+                 reference=None):
         self.reference = reference
         self.status = status
         self.info = info
         self.new_authentication = new_authentication
+        self.arrival_time = arrival_time
 
 
 class PingRequest(SOSAccessRequest):
@@ -153,7 +158,7 @@ class AlarmRequestSchema(SOSAccessSchema):
     transmitter_time = marshmallow.fields.DateTime(allow_none=True,
                                                    data_key='transmittertime')
     alarm_type = marshmallow.fields.String(allow_none=True,
-                                           validate=[Length(min=1, max=2)],
+                                           validate=[OneOf(ALARM_TYPES)],
                                            data_key='alarmtype')
     transmitter_type = marshmallow.fields.String(required=True,
                                                  validate=[Length(equal=5)],
@@ -199,7 +204,8 @@ class AlarmResponseSchema(SOSAccessSchema):
     info = marshmallow.fields.String(required=True,
                                      validate=[Length(min=1, max=255)])
     arrival_time = marshmallow.fields.DateTime(allow_none=True,
-                                               data_key='arrivaltime', format='rfc')
+                                               data_key='arrivaltime',
+                                               format='rfc')
 
     class Meta:
         ordered = True
@@ -241,6 +247,9 @@ class NewAuthResponseSchema(SOSAccessSchema):
     new_authentication = marshmallow.fields.String(required=True,
                                                    validate=[Length(equal=15)],
                                                    data_key='newauthentication')
+    arrival_time = marshmallow.fields.DateTime(allow_none=True,
+                                               data_key='arrivaltime',
+                                               format='rfc')
 
     class Meta:
         ordered = True
@@ -281,7 +290,8 @@ class PingResponseSchema(SOSAccessSchema):
     info = marshmallow.fields.String(required=True,
                                      validate=[Length(min=1, max=255)])
     arrival_time = marshmallow.fields.DateTime(allow_none=True,
-                                               data_key='arrivaltime')
+                                               data_key='arrivaltime',
+                                               format='rfc')
 
     class Meta:
         ordered = True

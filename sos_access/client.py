@@ -12,13 +12,22 @@ from sos_access.schemas import (AlarmRequestSchema, AlarmRequest,
                                 AlarmResponseSchema, PingRequest,
                                 PingRequestSchema, PingResponseSchema,
                                 NewAuthRequestSchema, NewAuthResponseSchema,
-                                NewAuthRequest)
-
-# TODO: Does not yet support sending restore messages.
-# Sending no alarm type defaults to alarm_type AL and to restore we need to send
-# alarm type RE.
+                                NewAuthRequest, PingResponse, AlarmResponse,
+                                NewAuthResponse)
 
 logger = logging.getLogger(__name__)
+
+
+# TODO: Implement Point class for different ways of generation a geografical point and use to position.
+# TODO:Implement way of adding additionalText to an alarm. List of info?
+# TODO: What event codes are there? An official list?
+# TODO: Find better description on what Section and detector is used for in the recieiver
+# TODO: Document monitored connections
+# TODO: Figure out fail over strategy.
+# tODO: add better exception messages
+# TODO: proper exceptionhandling in session
+# TODO: add proper logging
+# TODO: convert time to utc aware
 
 
 class SOSAccessClient:
@@ -66,63 +75,14 @@ class SOSAccessClient:
         self.new_auth_request_schema = NewAuthRequestSchema()
         self.new_auth_response_schema = NewAuthResponseSchema()
 
-    @staticmethod
-    def _check_response_status(response):
+    def send_alarm(self, event_code, transmitter_time=None, reference=None,
+                   transmitter_area=None, section=None, section_text=None,
+                   detector=None, detector_text=None, additional_info=None,
+                   position=None) -> AlarmResponse:
         """
-        Checks the status of the response and raise approriate errors if the
-        request wasn't successful.
-
-        :param response:
-        """
-        # TODO: Test!
-        if response.status == 1:
-            exception_info = f'{response.info}'
-            raise InvalidLength(exception_info)
-        elif response.status == 2:
-            exception_info = f'{response.info}'
-            raise InvalidXML(exception_info)
-        elif response.status == 3:
-            exception_info = f'{response.info}'
-            raise WrongContent(exception_info)
-        elif response.status == 4:
-            exception_info = f'{response.info}'
-            raise NotAuthorized(exception_info)
-        elif response.status == 5:
-            exception_info = f'{response.info}'
-            raise NotTreatedNotDistributed(exception_info)
-        elif response.status == 7:
-            exception_info = f'{response.info}'
-            raise MandatoryDataMissing(exception_info)
-        elif response.status == 9:
-            exception_info = (f'{response.info}: Hearbeat is not enabled on the'
-                              f' server for this alarm device')
-            raise ServiceUnavailable(exception_info)
-        elif response.status == 10:
-            exception_info = f'{response.info}'
-            raise DuplicateAlarm(exception_info)
-        elif response.status == 98:
-            exception_info = f'{response.info}'
-            raise  ServerSystemError(exception_info)
-        elif response.status == 99:
-            exception_info = f'{response.info}'
-            raise OtherError(exception_info)
-        elif response.status == 100:
-            exception_info = f'{response.info}'
-            raise XMLHeaderError(exception_info)
-        elif response.status == 101:
-            exception_info = f'{response.info}'
-            raise PingToOften(exception_info)
-
-
-    def send_alarm(self, event_code, alarm_type=None, transmitter_time=None,
-                   reference=None, transmitter_area=None, section=None,
-                   section_text=None, detector=None, detector_text=None,
-                   additional_info=None, position=None):
-        """
-        Sends an alarm to system.
+        Sends an alarm in the receiver.
 
         :param event_code:
-        :param alarm_type:
         :param transmitter_time:
         :param reference:
         :param transmitter_area:
@@ -138,8 +98,7 @@ class SOSAccessClient:
                                      transmitter_type=self.transmitter_type,
                                      transmitter_code=self.transmitter_code,
                                      authentication=self.authentication,
-                                     receiver=self.receiver_id,
-                                     alarm_type=alarm_type,
+                                     receiver=self.receiver_id, alarm_type='AL',
                                      transmitter_time=transmitter_time,
                                      reference=reference,
                                      transmitter_area=transmitter_area,
@@ -150,15 +109,47 @@ class SOSAccessClient:
                                      position=position)
 
         with self.session_class(self) as session:
-            out_data = self.alarm_request_schema.dump(alarm_request)
-            session.send(out_data)
-            in_data = session.receive()
-            alarm_response = self.alarm_response_schema.load(in_data)
-            self._check_response_status(alarm_response)
-            print(in_data)
+            alarm_response = session.send_alarm(alarm_request)
             return alarm_response
 
-    def ping(self, reference=None):
+    def restore_alarm(self, event_code, transmitter_time=None, reference=None,
+                      transmitter_area=None, section=None, section_text=None,
+                      detector=None, detector_text=None, additional_info=None,
+                      position=None) -> AlarmResponse:
+        """
+        Restores an alarm in the receiver.
+
+        :param event_code:
+        :param transmitter_time:
+        :param reference:
+        :param transmitter_area:
+        :param section:
+        :param section_text:
+        :param detector:
+        :param detector_text:
+        :param additional_info:
+        :param position:
+        :return:
+        """
+        alarm_request = AlarmRequest(event_code=event_code,
+                                     transmitter_type=self.transmitter_type,
+                                     transmitter_code=self.transmitter_code,
+                                     authentication=self.authentication,
+                                     receiver=self.receiver_id, alarm_type='RE',
+                                     transmitter_time=transmitter_time,
+                                     reference=reference,
+                                     transmitter_area=transmitter_area,
+                                     section=section, section_text=section_text,
+                                     detector=detector,
+                                     detector_text=detector_text,
+                                     additional_info=additional_info,
+                                     position=position)
+
+        with self.session_class(self) as session:
+            alarm_response = session.send_alarm(alarm_request)
+            return alarm_response
+
+    def ping(self, reference=None) -> PingResponse:
         """Sends a heart beat message to indicate to the alarm operator that
         the alarm device is still operational
         """
@@ -169,15 +160,10 @@ class SOSAccessClient:
                                    reference=reference)
 
         with self.session_class(self) as session:
-            out_data = self.ping_request_schema.dump(ping_request)
-            session.send(out_data)
-            in_data = session.receive()
-            ping_response = self.ping_response_schema.load(in_data)
-            self._check_response_status(ping_response)
-            print(in_data)
+            ping_response = session.send_ping(ping_request)
             return ping_response
 
-    def request_new_auth(self, reference=None):
+    def request_new_auth(self, reference=None) -> NewAuthResponse:
         """
         Send a request for new password on the server. This is used so that
         you can have a standard password when deploying devices but it is
@@ -185,34 +171,26 @@ class SOSAccessClient:
         is operational
         """
 
-
         new_auth_request = NewAuthRequest(authentication=self.authentication,
                                           transmitter_code=self.transmitter_code,
                                           transmitter_type=self.transmitter_type,
                                           reference=reference)
 
         with self.session_class(self) as session:
-            out_data = self.new_auth_request_schema.dump(new_auth_request)
-            print(out_data)
-            session.send(out_data)
-            in_data = session.receive()
-            print(in_data)
-            # TODO: if an server exception is raised it will not send back the correct response with all field.
-            new_auth_response = self.new_auth_response_schema.load(in_data)
-            self._check_response_status(new_auth_response)
-            print(in_data)
-            print(new_auth_response.new_authentication)
+            new_auth_response = session.request_new_auth(new_auth_request)
             self.authentication = new_auth_response.new_authentication
-            return new_auth_response.new_authentication
+            return new_auth_response
 
 
 class SOSAccessSession:
     """
-    Session handling TCP socket and sending and receiving data with the corect
+    Session handling TCP socket and sending and receiving data with the correct
     encoding.
     """
 
     ENCODING = 'latin-1'  # it is in the specs only to allow iso-8859-1
+
+    # TODO: maybe have mutiple transports?
 
     # TODO: how to handle secondary receiver?
     def __init__(self, client: SOSAccessClient):
@@ -225,21 +203,97 @@ class SOSAccessSession:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.socket.close()
         # handle and reraise exceptions from socket.
         # handle and reraise eceptions from client error.
         # handle SSLErrors!
-        pass
+        self.socket.close()
+
+    def send_alarm(self, alarm_request: AlarmRequest) -> AlarmResponse:
+        out_data = self.client.alarm_request_schema.dump(alarm_request)
+        self._send(out_data)
+        in_data = self._receive()
+        alarm_response = self.client.alarm_response_schema.load(in_data)
+        self._check_response_status(alarm_response)
+        print(out_data)
+        print(in_data)
+        return alarm_response
+
+    def send_ping(self, ping_request: PingRequest) -> PingResponse:
+        out_data = self.client.ping_request_schema.dump(ping_request)
+        self._send(out_data)
+        in_data = self._receive()
+        ping_response = self.client.ping_response_schema.load(in_data)
+        self._check_response_status(ping_response)
+        print(out_data)
+        print(in_data)
+        return ping_response
+
+    def request_new_auth(self,
+                         new_auth_request: NewAuthRequest) -> NewAuthResponse:
+        out_data = self.client.new_auth_request_schema.dump(new_auth_request)
+        self._send(out_data)
+        in_data = self._receive()
+        new_auth_response = self.client.new_auth_response_schema.load(in_data)
+        self._check_response_status(new_auth_response)
+        print(out_data)
+        print(in_data)
+        print(new_auth_response.new_authentication)
+        return new_auth_response
+
+    @staticmethod
+    def _check_response_status(response):
+        """
+        Checks the status of the response and raise appropriate errors if the
+        request wasn't successful.
+
+        :param response:
+        """
+        # TODO: Test!
+        if response.status == 1:
+            raise InvalidLength(f'{response.info}: Message is too long.')
+        elif response.status == 2:
+            raise InvalidXML(f'{response.info}: Invalid XML content.')
+        elif response.status == 3:
+            raise WrongContent(f'{response.info}: Wrong data content. '
+                               f'Ex: too long text in a field.')
+        elif response.status == 4:
+            raise NotAuthorized(f'{response.info}: Wrong combination of '
+                                f'transmitter, instance and password')
+        elif response.status == 5:
+            # Fail over should kick in.
+            raise NotTreatedNotDistributed(f'{response.info}: Error in '
+                                           f'processing. It has neither been '
+                                           f'treated or distributed')
+        elif response.status == 7:
+            raise MandatoryDataMissing(f'{response.info}: Mandatory XML tag '
+                                       f'missing')
+        elif response.status == 9:
+            raise ServiceUnavailable(
+                (f'{response.info}: Heartbeat is not enabled on the server for '
+                 f'this transmitter or you are not authorized to use it.'))
+        elif response.status == 10:
+            raise DuplicateAlarm(f'{response.info}: The same alarm was received'
+                                 f' multiple times')
+        elif response.status == 98:
+            raise ServerSystemError(f'{response.info}: General receiver error')
+        elif response.status == 99:
+            # Failover should kick in.
+            raise OtherError(f'{response.info}: Unknown receiver error')
+        elif response.status == 100:
+            raise XMLHeaderError(f'{response.info}: Invalid or missing XML '
+                                 f'header')
+        elif response.status == 101:
+            raise PingToOften(f'{response.info}: Heartbeat is sent too often')
 
     def _get_socket(self):
         """Returns socket for the session"""
         return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def send(self, data):
+    def _send(self, data):
         """Send data over socket with correct encoding"""
         self.socket.sendall(data.encode(self.ENCODING))
 
-    def receive(self):
+    def _receive(self):
         """Receive data on socket and decode using correct encoding"""
         data = self.socket.recv(4096)
         return data.decode(self.ENCODING)

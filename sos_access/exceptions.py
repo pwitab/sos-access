@@ -1,6 +1,7 @@
 class SOSAccessClientException(Exception):
     """General exception in client"""
 
+
 class  SOSAccessServerException(Exception):
     """General exception in server"""
 
