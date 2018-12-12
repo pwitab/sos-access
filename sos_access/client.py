@@ -7,7 +7,9 @@ from sos_access.exceptions import (IncorrectlyConfigured, InvalidLength,
                                    NotTreatedNotDistributed,
                                    MandatoryDataMissing, ServiceUnavailable,
                                    DuplicateAlarm, OtherError, XMLHeaderError,
-                                   PingToOften, ServerSystemError)
+                                   PingToOften, ServerSystemError,
+                                   AlarmReceiverConnectionError,
+                                   TCPTransportError)
 from sos_access.schemas import (AlarmRequestSchema, AlarmRequest,
                                 AlarmResponseSchema, PingRequest,
                                 PingRequestSchema, PingResponseSchema,
@@ -30,6 +32,44 @@ logger = logging.getLogger(__name__)
 # TODO: convert time to utc aware
 
 
+def alternating_retry(func):
+    """
+    Decorator function that will allow for retrying alternatly between the
+    primary and secondary alarm receiver server.
+    """
+
+    def retried_func(*args, **kwargs):
+        use_secondary = kwargs.get('secondary', False)
+        retry_count = 0
+        client = args[0].client
+
+        # We want to catch stuff that forces us to retry the sending.
+        errors = (TCPTransportError, NotTreatedNotDistributed, OtherError)
+
+        # if we only have a single receiver we only have to try on that.
+        if client.use_single_receiver:
+            max_retries = client.MAX_RETRY
+        else:
+            max_retries = client.MAX_RETRY * 2
+
+        while retry_count < max_retries:
+            try:
+                kwargs['secondary'] = use_secondary
+                result = func(*args, **kwargs)
+                return result
+            except errors as e:
+                logger.exception(e)
+                if not client.use_single_receiver:
+                    use_secondary = not use_secondary  # toggle fail over
+                retry_count = retry_count + 1
+
+        # if it comes out of the loop we raise new exeption.
+        raise AlarmReceiverConnectionError('Not possible to send data to any '
+                                           'of the client receivers')
+
+    return retried_func
+
+
 class SOSAccessClient:
     """
     Client implementing the SOS Access v4 protocol to be used for sending Alarm
@@ -44,11 +84,11 @@ class SOSAccessClient:
     :param use_single_receiver:
     :param use_tls:
     """
+    MAX_RETRY = 3
 
     def __init__(self, transmitter_code, transmitter_type, authentication,
                  receiver_id, receiver_address, secondary_receiver_address=None,
                  use_single_receiver=False, use_tls=False):
-
         self.transmitter_code = transmitter_code
         self.transmitter_type = transmitter_type
         self.authentication = authentication
@@ -61,11 +101,6 @@ class SOSAccessClient:
         if self.secondary_receiver_address is None and not use_single_receiver:
             raise IncorrectlyConfigured(
                 'Both primary and secondary receiver address is needed.')
-
-        if use_tls:
-            self.session_class = SecureSOSAccessSession
-        else:
-            self.session_class = SOSAccessSession
 
         # load all schemas so we don't have to remember to do it again.
         self.alarm_request_schema = AlarmRequestSchema()
@@ -108,7 +143,7 @@ class SOSAccessClient:
                                      additional_info=additional_info,
                                      position=position)
 
-        with self.session_class(self) as session:
+        with SOSAccessSession(self) as session:
             alarm_response = session.send_alarm(alarm_request)
             return alarm_response
 
@@ -145,7 +180,7 @@ class SOSAccessClient:
                                      additional_info=additional_info,
                                      position=position)
 
-        with self.session_class(self) as session:
+        with SOSAccessSession(self) as session:
             alarm_response = session.send_alarm(alarm_request)
             return alarm_response
 
@@ -159,7 +194,7 @@ class SOSAccessClient:
                                    transmitter_type=self.transmitter_type,
                                    reference=reference)
 
-        with self.session_class(self) as session:
+        with SOSAccessSession(self) as session:
             ping_response = session.send_ping(ping_request)
             return ping_response
 
@@ -176,7 +211,7 @@ class SOSAccessClient:
                                           transmitter_type=self.transmitter_type,
                                           reference=reference)
 
-        with self.session_class(self) as session:
+        with SOSAccessSession(self) as session:
             new_auth_response = session.request_new_auth(new_auth_request)
             self.authentication = new_auth_response.new_authentication
             return new_auth_response
@@ -195,50 +230,70 @@ class SOSAccessSession:
     # TODO: how to handle secondary receiver?
     def __init__(self, client: SOSAccessClient):
         self.client = client
-        self.socket = self._get_socket()
 
     def __enter__(self):
-        # TODO: need to handle exceptions in enter
-        self.socket.connect(self.client.receiver_address)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # handle and reraise exceptions from socket.
         # handle and reraise eceptions from client error.
         # handle SSLErrors!
-        self.socket.close()
+        pass
 
-    def send_alarm(self, alarm_request: AlarmRequest) -> AlarmResponse:
+    @alternating_retry
+    def send_alarm(self, alarm_request: AlarmRequest,
+                   secondary=False) -> AlarmResponse:
         out_data = self.client.alarm_request_schema.dump(alarm_request)
-        self._send(out_data)
-        in_data = self._receive()
+        logger.debug(f'Sending: {out_data}')
+        in_data = self.transmit(out_data, secondary=secondary)
+        logger.debug(f'Received: {in_data}')
         alarm_response = self.client.alarm_response_schema.load(in_data)
         self._check_response_status(alarm_response)
-        print(out_data)
-        print(in_data)
         return alarm_response
 
-    def send_ping(self, ping_request: PingRequest) -> PingResponse:
+    @alternating_retry
+    def send_ping(self, ping_request: PingRequest,
+                  secondary=False) -> PingResponse:
+        """
+        To send ping request
+        """
         out_data = self.client.ping_request_schema.dump(ping_request)
-        self._send(out_data)
-        in_data = self._receive()
+        logger.debug(f'Sending: {out_data}')
+        in_data = self.transmit(out_data, secondary=secondary)
+        logger.debug(f'Received: {in_data}')
         ping_response = self.client.ping_response_schema.load(in_data)
         self._check_response_status(ping_response)
-        print(out_data)
-        print(in_data)
         return ping_response
 
-    def request_new_auth(self,
-                         new_auth_request: NewAuthRequest) -> NewAuthResponse:
+    @alternating_retry
+    def request_new_auth(self, new_auth_request: NewAuthRequest,
+                         secondary=False) -> NewAuthResponse:
+        """
+        To send request new auth request
+        """
         out_data = self.client.new_auth_request_schema.dump(new_auth_request)
-        self._send(out_data)
-        in_data = self._receive()
+        logger.debug(f'Sending: {out_data}')
+        in_data = self.transmit(out_data, secondary=secondary)
+        logger.debug(f'Received: {in_data}')
         new_auth_response = self.client.new_auth_response_schema.load(in_data)
         self._check_response_status(new_auth_response)
-        print(out_data)
-        print(in_data)
-        print(new_auth_response.new_authentication)
         return new_auth_response
+
+    def transmit(self, data, secondary=False):
+        """
+        Will create a TCP connection and send the request and received the
+        response
+        """
+        if secondary:
+            address = self.client.secondary_receiver_address
+        else:
+            address = self.client.receiver_address
+
+        with TCPTransport(address, secure=self.client.use_tls) as transport:
+            transport.connect()
+            transport.send(data.encode(self.ENCODING))
+            response = transport.receive().decode(self.ENCODING)
+            return response
 
     @staticmethod
     def _check_response_status(response):
@@ -285,31 +340,55 @@ class SOSAccessSession:
         elif response.status == 101:
             raise PingToOften(f'{response.info}: Heartbeat is sent too often')
 
-    def _get_socket(self):
-        """Returns socket for the session"""
-        return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def _send(self, data):
+class TCPTransport:
+
+    def __init__(self, address, secure=False, timeout=5):
+        self.address = address
+        self.timeout = timeout
+        self.socket = self._get_socket(secure, timeout)
+
+    def __enter__(self):
+        # If we dont do anything in __enter__ we dont have to handle exceptions
+        # twice....
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.socket.close()
+        # Catch any error related to the socket and raise as TCP error
+        if exc_type in (
+                OSError, IOError, ssl.SSLError, socket.error, socket.timeout):
+            raise TCPTransportError from exc_type(exc_val, exc_tb)
+        else:
+            raise exc_type(exc_val, exc_tb)
+
+    def _get_socket(self, secure=False, timeout=None):
+        """
+        Returns socket. If secure is True the socket is wrapped in an SSL Context
+        """
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout or self.timeout)
+
+        if secure:
+            # Setting Purpose to CLIENT_AUTH might seem a bit backwards. But
+            # SOS Access v4 is using SSL/TLS for encryption not authentications
+            # and verification. There is no cert and no hostname to check so
+            # setting the purpose to Client Auth diables that in a nifty way.
+            self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            return self.context.wrap_socket(sock)
+
+        else:
+            return sock
+
+    def connect(self, address=None):
+        _address = address or self.address
+        self.socket.connect(_address)
+
+    def send(self, data):
         """Send data over socket with correct encoding"""
-        self.socket.sendall(data.encode(self.ENCODING))
+        self.socket.sendall(data)
 
-    def _receive(self):
+    def receive(self):
         """Receive data on socket and decode using correct encoding"""
         data = self.socket.recv(4096)
-        return data.decode(self.ENCODING)
-
-
-class SecureSOSAccessSession(SOSAccessSession):
-    """
-    Session handling encrypted connections to alarm operators.
-    """
-
-    def _get_socket(self):
-        """Returns SSL/TLS socket"""
-        # Setting Purpose to CLIENT_AUTH might seem a bit backwards. But
-        # SOS Access v4 is using SSL/TLS for encryption not authentications and
-        # verification. There is no cert and no hostname to check so setting the
-        # purpose to Client Auth diables that in a nifty way.
-        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        return self.context.wrap_socket(sock)
+        return data

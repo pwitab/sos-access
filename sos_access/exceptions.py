@@ -2,7 +2,7 @@ class SOSAccessClientException(Exception):
     """General exception in client"""
 
 
-class  SOSAccessServerException(Exception):
+class SOSAccessServerException(Exception):
     """General exception in server"""
 
 
@@ -62,3 +62,9 @@ class ServerSystemError(SOSAccessServerException):
     """System error in receiving server"""
 
 
+class TCPTransportError(Exception):
+    """Something went wrong in sending data"""
+
+
+class AlarmReceiverConnectionError(SOSAccessClientException):
+    """Not possible to connect to the Alarm receivers specified"""
