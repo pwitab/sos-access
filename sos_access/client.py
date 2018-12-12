@@ -41,7 +41,7 @@ def alternating_retry(func):
     def retried_func(*args, **kwargs):
         use_secondary = kwargs.get('secondary', False)
         retry_count = 0
-        client = args[0].client
+        client = args[0]
 
         # We want to catch stuff that forces us to retry the sending.
         errors = (TCPTransportError, NotTreatedNotDistributed, OtherError)
@@ -85,6 +85,7 @@ class SOSAccessClient:
     :param use_tls:
     """
     MAX_RETRY = 3
+    ENCODING = 'latin-1'  # it is in the specs only to allow iso-8859-1
 
     def __init__(self, transmitter_code, transmitter_type, authentication,
                  receiver_id, receiver_address, secondary_receiver_address=None,
@@ -143,9 +144,20 @@ class SOSAccessClient:
                                      additional_info=additional_info,
                                      position=position)
 
-        with SOSAccessSession(self) as session:
-            alarm_response = session.send_alarm(alarm_request)
-            return alarm_response
+        return self._send_alarm(alarm_request)
+
+    @alternating_retry
+    def _send_alarm(self, alarm_request: AlarmRequest,
+                    secondary=False) -> AlarmResponse:
+        out_data = self.alarm_request_schema.dump(alarm_request)
+        logger.debug(f'Sending: {out_data}')
+        in_data = self.transmit(out_data, secondary=secondary)
+        logger.debug(f'Received: {in_data}')
+        alarm_response = self.alarm_response_schema.load(in_data)
+        self._check_response_status(alarm_response)
+        print(out_data)
+        print(in_data)
+        return alarm_response
 
     def restore_alarm(self, event_code, transmitter_time=None, reference=None,
                       transmitter_area=None, section=None, section_text=None,
@@ -180,9 +192,7 @@ class SOSAccessClient:
                                      additional_info=additional_info,
                                      position=position)
 
-        with SOSAccessSession(self) as session:
-            alarm_response = session.send_alarm(alarm_request)
-            return alarm_response
+        return self._send_alarm(alarm_request)
 
     def ping(self, reference=None) -> PingResponse:
         """Sends a heart beat message to indicate to the alarm operator that
@@ -193,10 +203,21 @@ class SOSAccessClient:
                                    transmitter_code=self.transmitter_code,
                                    transmitter_type=self.transmitter_type,
                                    reference=reference)
+        return self._send_ping(ping_request)
 
-        with SOSAccessSession(self) as session:
-            ping_response = session.send_ping(ping_request)
-            return ping_response
+    @alternating_retry
+    def _send_ping(self, ping_request: PingRequest,
+                   secondary=False) -> PingResponse:
+        """
+        To send ping request
+        """
+        out_data = self.ping_request_schema.dump(ping_request)
+        logger.debug(f'Sending: {out_data}')
+        in_data = self.transmit(out_data, secondary=secondary)
+        logger.debug(f'Received: {in_data}')
+        ping_response = self.ping_response_schema.load(in_data)
+        self._check_response_status(ping_response)
+        return ping_response
 
     def request_new_auth(self, reference=None) -> NewAuthResponse:
         """
@@ -211,71 +232,19 @@ class SOSAccessClient:
                                           transmitter_type=self.transmitter_type,
                                           reference=reference)
 
-        with SOSAccessSession(self) as session:
-            new_auth_response = session.request_new_auth(new_auth_request)
-            self.authentication = new_auth_response.new_authentication
-            return new_auth_response
-
-
-class SOSAccessSession:
-    """
-    Session handling TCP socket and sending and receiving data with the correct
-    encoding.
-    """
-
-    ENCODING = 'latin-1'  # it is in the specs only to allow iso-8859-1
-
-    # TODO: maybe have mutiple transports?
-
-    # TODO: how to handle secondary receiver?
-    def __init__(self, client: SOSAccessClient):
-        self.client = client
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # handle and reraise exceptions from socket.
-        # handle and reraise eceptions from client error.
-        # handle SSLErrors!
-        pass
+        return self._request_new_auth(new_auth_request)
 
     @alternating_retry
-    def send_alarm(self, alarm_request: AlarmRequest,
-                   secondary=False) -> AlarmResponse:
-        out_data = self.client.alarm_request_schema.dump(alarm_request)
-        logger.debug(f'Sending: {out_data}')
-        in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received: {in_data}')
-        alarm_response = self.client.alarm_response_schema.load(in_data)
-        self._check_response_status(alarm_response)
-        return alarm_response
-
-    @alternating_retry
-    def send_ping(self, ping_request: PingRequest,
-                  secondary=False) -> PingResponse:
-        """
-        To send ping request
-        """
-        out_data = self.client.ping_request_schema.dump(ping_request)
-        logger.debug(f'Sending: {out_data}')
-        in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received: {in_data}')
-        ping_response = self.client.ping_response_schema.load(in_data)
-        self._check_response_status(ping_response)
-        return ping_response
-
-    @alternating_retry
-    def request_new_auth(self, new_auth_request: NewAuthRequest,
-                         secondary=False) -> NewAuthResponse:
+    def _request_new_auth(self, new_auth_request: NewAuthRequest,
+                          secondary=False) -> NewAuthResponse:
         """
         To send request new auth request
         """
-        out_data = self.client.new_auth_request_schema.dump(new_auth_request)
+        out_data = self.new_auth_request_schema.dump(new_auth_request)
         logger.debug(f'Sending: {out_data}')
         in_data = self.transmit(out_data, secondary=secondary)
         logger.debug(f'Received: {in_data}')
-        new_auth_response = self.client.new_auth_response_schema.load(in_data)
+        new_auth_response = self.new_auth_response_schema.load(in_data)
         self._check_response_status(new_auth_response)
         return new_auth_response
 
@@ -285,11 +254,11 @@ class SOSAccessSession:
         response
         """
         if secondary:
-            address = self.client.secondary_receiver_address
+            address = self.secondary_receiver_address
         else:
-            address = self.client.receiver_address
+            address = self.receiver_address
 
-        with TCPTransport(address, secure=self.client.use_tls) as transport:
+        with TCPTransport(address, secure=self.use_tls) as transport:
             transport.connect()
             transport.send(data.encode(self.ENCODING))
             response = transport.receive().decode(self.ENCODING)
@@ -359,8 +328,6 @@ class TCPTransport:
         if exc_type in (
                 OSError, IOError, ssl.SSLError, socket.error, socket.timeout):
             raise TCPTransportError from exc_type(exc_val, exc_tb)
-        else:
-            raise exc_type(exc_val, exc_tb)
 
     def _get_socket(self, secure=False, timeout=None):
         """
