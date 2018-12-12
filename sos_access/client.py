@@ -8,7 +8,6 @@ from sos_access.exceptions import (IncorrectlyConfigured, InvalidLength,
                                    MandatoryDataMissing, ServiceUnavailable,
                                    DuplicateAlarm, OtherError, XMLHeaderError,
                                    PingToOften, ServerSystemError,
-                                   AlarmReceiverConnectionError,
                                    TCPTransportError)
 from sos_access.schemas import (AlarmRequestSchema, AlarmRequest,
                                 AlarmResponseSchema, PingRequest,
@@ -17,57 +16,19 @@ from sos_access.schemas import (AlarmRequestSchema, AlarmRequest,
                                 NewAuthRequest, PingResponse, AlarmResponse,
                                 NewAuthResponse)
 
+from sos_access.decorators import alternating_retry
+
 logger = logging.getLogger(__name__)
 
 
-# TODO: Implement Point class for different ways of generation a geografical point and use to position.
-# TODO:Implement way of adding additionalText to an alarm. List of info?
+# TODO: Implement Point class for different ways of generation a geografical
+#       point and use to position.
+# TODO: Implement way of adding additionalText to an alarm. List of info?
 # TODO: What event codes are there? An official list?
 # TODO: Find better description on what Section and detector is used for in the recieiver
 # TODO: Document monitored connections
-# TODO: Figure out fail over strategy.
-# tODO: add better exception messages
-# TODO: proper exceptionhandling in session
 # TODO: add proper logging
 # TODO: convert time to utc aware
-
-
-def alternating_retry(func):
-    """
-    Decorator function that will allow for retrying alternatly between the
-    primary and secondary alarm receiver server.
-    """
-
-    def retried_func(*args, **kwargs):
-        use_secondary = kwargs.get('secondary', False)
-        retry_count = 0
-        client = args[0]
-
-        # We want to catch stuff that forces us to retry the sending.
-        errors = (TCPTransportError, NotTreatedNotDistributed, OtherError)
-
-        # if we only have a single receiver we only have to try on that.
-        if client.use_single_receiver:
-            max_retries = client.MAX_RETRY
-        else:
-            max_retries = client.MAX_RETRY * 2
-
-        while retry_count < max_retries:
-            try:
-                kwargs['secondary'] = use_secondary
-                result = func(*args, **kwargs)
-                return result
-            except errors as e:
-                logger.exception(e)
-                if not client.use_single_receiver:
-                    use_secondary = not use_secondary  # toggle fail over
-                retry_count = retry_count + 1
-
-        # if it comes out of the loop we raise new exeption.
-        raise AlarmReceiverConnectionError('Not possible to send data to any '
-                                           'of the client receivers')
-
-    return retried_func
 
 
 class SOSAccessClient:
@@ -146,19 +107,6 @@ class SOSAccessClient:
 
         return self._send_alarm(alarm_request)
 
-    @alternating_retry
-    def _send_alarm(self, alarm_request: AlarmRequest,
-                    secondary=False) -> AlarmResponse:
-        out_data = self.alarm_request_schema.dump(alarm_request)
-        logger.debug(f'Sending: {out_data}')
-        in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received: {in_data}')
-        alarm_response = self.alarm_response_schema.load(in_data)
-        self._check_response_status(alarm_response)
-        print(out_data)
-        print(in_data)
-        return alarm_response
-
     def restore_alarm(self, event_code, transmitter_time=None, reference=None,
                       transmitter_area=None, section=None, section_text=None,
                       detector=None, detector_text=None, additional_info=None,
@@ -194,8 +142,22 @@ class SOSAccessClient:
 
         return self._send_alarm(alarm_request)
 
+    @alternating_retry
+    def _send_alarm(self, alarm_request: AlarmRequest,
+                    secondary=False) -> AlarmResponse:
+        out_data = self.alarm_request_schema.dump(alarm_request)
+        logger.debug(f'Sending: {out_data}')
+        in_data = self.transmit(out_data, secondary=secondary)
+        logger.debug(f'Received: {in_data}')
+        alarm_response = self.alarm_response_schema.load(in_data)
+        self._check_response_status(alarm_response)
+        print(out_data)
+        print(in_data)
+        return alarm_response
+
     def ping(self, reference=None) -> PingResponse:
-        """Sends a heart beat message to indicate to the alarm operator that
+        """
+        Sends a heart beat message to indicate to the alarm operator that
         the alarm device is still operational
         """
 
@@ -232,11 +194,11 @@ class SOSAccessClient:
                                           transmitter_type=self.transmitter_type,
                                           reference=reference)
 
-        return self._request_new_auth(new_auth_request)
+        return self._send_request_new_auth(new_auth_request)
 
     @alternating_retry
-    def _request_new_auth(self, new_auth_request: NewAuthRequest,
-                          secondary=False) -> NewAuthResponse:
+    def _send_request_new_auth(self, new_auth_request: NewAuthRequest,
+                               secondary=False) -> NewAuthResponse:
         """
         To send request new auth request
         """
@@ -331,7 +293,8 @@ class TCPTransport:
 
     def _get_socket(self, secure=False, timeout=None):
         """
-        Returns socket. If secure is True the socket is wrapped in an SSL Context
+        Returns socket. If secure is True the socket is wrapped in an
+        SSL Context
         """
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout or self.timeout)

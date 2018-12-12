@@ -6,6 +6,7 @@ ALLOWED_STATUS_CODES = [0, 1, 2, 3, 4, 5, 7, 9, 10, 98, 99, 100, 101]
 
 ALARM_TYPES = ['AL', 'RE']
 
+
 # TODO: write tests for all schemas.
 
 
@@ -35,6 +36,45 @@ class AlarmRequest(SOSAccessRequest):
         self.detector_text = detector_text
         self.additional_info = additional_info
         self.position = position
+
+    @property
+    def additional_info_text(self):
+        """
+        Additional info is extra info about the alarm. Input is added using the
+        additional_info but we are under constraint to format the output
+        properly. We accept a list of values. Each item should be printed on a
+        separate line. We use CR+LF to separate lines.
+        If we dont get a list we try to make a string of it and send it on.
+        We must keep the resulting text under 2000 chars. On list input we
+        truncate the last input that makes the message go over the limit
+        On single row we truncate the data and add ... to it.
+
+        :return: text
+        """
+        text = ''
+        max_length = 2000
+        if isinstance(self.additional_info, (list, tuple)):
+
+            for item in self.additional_info:
+                line = f'{item} \r\n'
+                if len(text + line) > max_length:
+                    break
+                text = text + line  # TODO: Test
+            return text
+
+        elif isinstance(self.additional_info, dict):
+            # print key and value on each row.
+            for key, value in self.additional_info.items():
+                line = f'{key}: {value} \r\n'
+                if len(text + line) >  max_length:
+                    break
+                text = text + line  # TODO: Test
+
+        else:
+            line = str(self.additional_info)
+            if len(line) > max_length:
+                line = line[:1997]  # TODO: Test
+            return line
 
     def __repr__(self):
         # TODO: better repr!
@@ -182,7 +222,9 @@ class AlarmRequestSchema(SOSAccessSchema):
                                               data_key='detectortext')
     # Lines in additionalinfo is separated via CR+LF or LF. CR = 0x0a LF = 0x0d
     additional_info = marshmallow.fields.String(allow_none=True, validate=[
-        Length(min=1, max=2000)], data_key='additinalinfo')
+        Length(min=1, max=2000)], data_key='additinalinfo', load_only=True)
+    additional_info_text = marshmallow.fields.String(allow_none=True, validate=[
+        Length(min=1, max=2000)], data_key='additinalinfo', dump_only=True)
 
     position = marshmallow.fields.Nested(PositionSchema, allow_none=True)
 
