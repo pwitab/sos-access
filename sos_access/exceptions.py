@@ -19,7 +19,7 @@ class InvalidLength(SOSAccessError):
 
 
 class InvalidXML(SOSAccessError):
-    """Invalud XML content"""
+    """Invalid XML content"""
 
 
 class WrongContent(SOSAccessError):

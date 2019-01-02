@@ -66,7 +66,7 @@ class AlarmRequest(SOSAccessRequest):
             # print key and value on each row.
             for key, value in self.additional_info.items():
                 line = f'{key}: {value} \r\n'
-                if len(text + line) >  max_length:
+                if len(text + line) > max_length:
                     break
                 text = text + line  # TODO: Test
 
@@ -77,8 +77,10 @@ class AlarmRequest(SOSAccessRequest):
             return line
 
     def __repr__(self):
-        # TODO: better repr!
-        return f'{self.__class__}(event_code={self.event_code})'
+        return (f'{self.__class__}(event_code={self.event_code}, '
+                f'transmitter_type={self.transmitter_type}, '
+                f'transmitter_code={self.transmitter_code}), '
+                f'receiver={self.receiver}')
 
 
 class AlarmResponse(SOSAccessRequest):
@@ -89,6 +91,11 @@ class AlarmResponse(SOSAccessRequest):
         self.info = info
         self.arrival_time = arrival_time
 
+    def __repr__(self):
+        return (f'{self.__class__}(status={self.status}, info={self.info}, '
+                f'arrival_time={self.arrival_time}, '
+                f'reference={self.reference})')
+
 
 class NewAuthRequest(SOSAccessRequest):
 
@@ -98,6 +105,12 @@ class NewAuthRequest(SOSAccessRequest):
         self.reference = reference
         self.transmitter_code = transmitter_code
         self.transmitter_type = transmitter_type
+
+    def __repr__(self):
+        return (f'{self.__class__}(authentication={self.authentication}, '
+                f'transmitter_code={self.transmitter_code}, '
+                f'transmitter_type={self.transmitter_type}, '
+                f'reference={self.reference})')
 
 
 class NewAuthResponse(SOSAccessRequest):
@@ -110,6 +123,14 @@ class NewAuthResponse(SOSAccessRequest):
         self.new_authentication = new_authentication
         self.arrival_time = arrival_time
 
+    def __repr__(self):
+        return (f'{self.__class__}('
+                f'new_authentication={self.new_authentication}, '
+                f'status={self.status}, '
+                f'info={self.info}, '
+                f'arrival_time={self.arrival_time}, '
+                f'reference={self.reference})')
+
 
 class PingRequest(SOSAccessRequest):
 
@@ -120,6 +141,12 @@ class PingRequest(SOSAccessRequest):
         self.transmitter_code = transmitter_code
         self.transmitter_type = transmitter_type
 
+    def __repr__(self):
+        return (f'{self.__class__}(authentication={self.authentication}, '
+                f'transmitter_code={self.transmitter_code}, '
+                f'transmitter_type={self.transmitter_type}, '
+                f'reference={self.reference})')
+
 
 class PingResponse(SOSAccessRequest):
     def __init__(self, status, info, arrival_time=None, reference=None):
@@ -127,6 +154,13 @@ class PingResponse(SOSAccessRequest):
         self.status = status
         self.info = info
         self.arrival_time = arrival_time  # Alarm Request
+
+    def __repr__(self):
+        return (f'{self.__class__}('
+                f'status={self.status}, '
+                f'info={self.info}, '
+                f'arrival_time={self.arrival_time}, '
+                f'reference={self.reference})')
 
 
 class PositionSchema(marshmallow.Schema):

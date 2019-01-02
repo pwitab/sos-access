@@ -72,6 +72,16 @@ class SOSAccessClient:
         self.new_auth_request_schema = NewAuthRequestSchema()
         self.new_auth_response_schema = NewAuthResponseSchema()
 
+    def __repr__(self):
+        return (f'{self.__class__}(transmitter_code={self.transmitter_code}, '
+                f'transmitter_type={self.transmitter_type}, '
+                f'authentication=<redacted>, '
+                f'receiver_id={self.receiver_id}, '
+                f'receiver_address={self.receiver_address}, '
+                f'secondary_receiver_address={self.secondary_receiver_address}, '
+                f'use_single_receiver={self.use_single_receiver}, '
+                f'use_tls={self.use_tls})')
+
     def send_alarm(self, event_code, transmitter_time=None, reference=None,
                    transmitter_area=None, section=None, section_text=None,
                    detector=None, detector_text=None, additional_info=None,
@@ -104,6 +114,7 @@ class SOSAccessClient:
                                      detector_text=detector_text,
                                      additional_info=additional_info,
                                      position=position)
+        logger.info(f'Sending alarm request: {alarm_request}')
 
         return self._send_alarm(alarm_request)
 
@@ -139,6 +150,7 @@ class SOSAccessClient:
                                      detector_text=detector_text,
                                      additional_info=additional_info,
                                      position=position)
+        logger.info(f'Sending restore alarm request: {alarm_request}')
 
         return self._send_alarm(alarm_request)
 
@@ -146,13 +158,12 @@ class SOSAccessClient:
     def _send_alarm(self, alarm_request: AlarmRequest,
                     secondary=False) -> AlarmResponse:
         out_data = self.alarm_request_schema.dump(alarm_request)
-        logger.debug(f'Sending: {out_data}')
+        logger.debug(f'Sending SOS Access Data: {out_data}')
         in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received: {in_data}')
+        logger.debug(f'Received SOS Access Data: {in_data}')
         alarm_response = self.alarm_response_schema.load(in_data)
+        logger.info(f'Received alarm response: {alarm_response}')
         self._check_response_status(alarm_response)
-        print(out_data)
-        print(in_data)
         return alarm_response
 
     def ping(self, reference=None) -> PingResponse:
@@ -165,6 +176,7 @@ class SOSAccessClient:
                                    transmitter_code=self.transmitter_code,
                                    transmitter_type=self.transmitter_type,
                                    reference=reference)
+        logger.info(f'Sending {ping_request}')
         return self._send_ping(ping_request)
 
     @alternating_retry
@@ -174,10 +186,11 @@ class SOSAccessClient:
         To send ping request
         """
         out_data = self.ping_request_schema.dump(ping_request)
-        logger.debug(f'Sending: {out_data}')
+        logger.debug(f'Sending SOS Access data: {out_data}')
         in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received: {in_data}')
+        logger.debug(f'Received SOS Access data: {in_data}')
         ping_response = self.ping_response_schema.load(in_data)
+        logger.info(f'Received {ping_response}')
         self._check_response_status(ping_response)
         return ping_response
 
@@ -193,7 +206,7 @@ class SOSAccessClient:
                                           transmitter_code=self.transmitter_code,
                                           transmitter_type=self.transmitter_type,
                                           reference=reference)
-
+        logger.info(f'Sending {new_auth_request}')
         return self._send_request_new_auth(new_auth_request)
 
     @alternating_retry
@@ -203,10 +216,11 @@ class SOSAccessClient:
         To send request new auth request
         """
         out_data = self.new_auth_request_schema.dump(new_auth_request)
-        logger.debug(f'Sending: {out_data}')
+        logger.debug(f'Sending SOS Access data: {out_data}')
         in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received: {in_data}')
+        logger.debug(f'Received SOS Access data: {in_data}')
         new_auth_response = self.new_auth_response_schema.load(in_data)
+        logger.info(f'Received {new_auth_response}')
         self._check_response_status(new_auth_response)
         return new_auth_response
 
@@ -219,6 +233,8 @@ class SOSAccessClient:
             address = self.secondary_receiver_address
         else:
             address = self.receiver_address
+        logger.info(f'Starting new connection to {address} with '
+                    f'secure={self.use_tls}')
 
         with TCPTransport(address, secure=self.use_tls) as transport:
             transport.connect()
