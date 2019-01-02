@@ -73,7 +73,8 @@ class SOSAccessClient:
         self.new_auth_response_schema = NewAuthResponseSchema()
 
     def __repr__(self):
-        return (f'{self.__class__}(transmitter_code={self.transmitter_code}, '
+        return (f'{self.__class__.__name__}('
+                f'transmitter_code={self.transmitter_code}, '
                 f'transmitter_type={self.transmitter_type}, '
                 f'authentication=<redacted>, '
                 f'receiver_id={self.receiver_id}, '

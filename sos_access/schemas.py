@@ -77,10 +77,11 @@ class AlarmRequest(SOSAccessRequest):
             return line
 
     def __repr__(self):
-        return (f'{self.__class__}(event_code={self.event_code}, '
+        return (f'{self.__class__.__name__}('
+                f'event_code={self.event_code}, '
                 f'transmitter_type={self.transmitter_type}, '
                 f'transmitter_code={self.transmitter_code}), '
-                f'receiver={self.receiver}')
+                f'receiver={self.receiver})')
 
 
 class AlarmResponse(SOSAccessRequest):
@@ -92,7 +93,9 @@ class AlarmResponse(SOSAccessRequest):
         self.arrival_time = arrival_time
 
     def __repr__(self):
-        return (f'{self.__class__}(status={self.status}, info={self.info}, '
+        return (f'{self.__class__.__name__}('
+                f'status={self.status}, '
+                f'info={self.info}, '
                 f'arrival_time={self.arrival_time}, '
                 f'reference={self.reference})')
 
@@ -107,7 +110,8 @@ class NewAuthRequest(SOSAccessRequest):
         self.transmitter_type = transmitter_type
 
     def __repr__(self):
-        return (f'{self.__class__}(authentication={self.authentication}, '
+        return (f'{self.__class__.__name__}('
+                f'authentication={self.authentication}, '
                 f'transmitter_code={self.transmitter_code}, '
                 f'transmitter_type={self.transmitter_type}, '
                 f'reference={self.reference})')
@@ -124,8 +128,8 @@ class NewAuthResponse(SOSAccessRequest):
         self.arrival_time = arrival_time
 
     def __repr__(self):
-        return (f'{self.__class__}('
-                f'new_authentication={self.new_authentication}, '
+        return (f'{self.__class__.__name__}('
+                f'new_authentication=<redacted>, '
                 f'status={self.status}, '
                 f'info={self.info}, '
                 f'arrival_time={self.arrival_time}, '
@@ -142,7 +146,8 @@ class PingRequest(SOSAccessRequest):
         self.transmitter_type = transmitter_type
 
     def __repr__(self):
-        return (f'{self.__class__}(authentication={self.authentication}, '
+        return (f'{self.__class__.__name__}('
+                f'authentication=<redacted>, '
                 f'transmitter_code={self.transmitter_code}, '
                 f'transmitter_type={self.transmitter_type}, '
                 f'reference={self.reference})')
@@ -156,7 +161,7 @@ class PingResponse(SOSAccessRequest):
         self.arrival_time = arrival_time  # Alarm Request
 
     def __repr__(self):
-        return (f'{self.__class__}('
+        return (f'{self.__class__.__name__}('
                 f'status={self.status}, '
                 f'info={self.info}, '
                 f'arrival_time={self.arrival_time}, '
