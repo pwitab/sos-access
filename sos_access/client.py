@@ -1,14 +1,16 @@
 import logging
 import socket
 import ssl
+import time
 
-from sos_access.exceptions import (IncorrectlyConfigured, InvalidLength,
+from sos_access.exceptions import (SOSAccessClientException,
+                                   IncorrectlyConfigured, InvalidLength,
                                    InvalidXML, WrongContent, NotAuthorized,
                                    NotTreatedNotDistributed,
                                    MandatoryDataMissing, ServiceUnavailable,
                                    DuplicateAlarm, OtherError, XMLHeaderError,
                                    PingToOften, ServerSystemError,
-                                   TCPTransportError)
+                                   TCPTransportError, XMLParseError)
 from sos_access.schemas import (AlarmRequestSchema, AlarmRequest,
                                 AlarmResponseSchema, PingRequest,
                                 PingRequestSchema, PingResponseSchema,
@@ -23,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # TODO: Implement Point class for different ways of generation a geografical
 #       point and use to position.
-# TODO: Implement way of adding additionalText to an alarm. List of info?
 # TODO: What event codes are there? An official list?
 # TODO: Find better description on what Section and detector is used for in the recieiver
 # TODO: Document monitored connections
@@ -160,9 +161,8 @@ class SOSAccessClient:
                     secondary=False) -> AlarmResponse:
         out_data = self.alarm_request_schema.dump(alarm_request)
         logger.debug(f'Sending SOS Access Data: {out_data}')
-        in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received SOS Access Data: {in_data}')
-        alarm_response = self.alarm_response_schema.load(in_data)
+        alarm_response = self.transmit(out_data, self.alarm_response_schema,
+                                       secondary=secondary)
         logger.info(f'Received alarm response: {alarm_response}')
         self._check_response_status(alarm_response)
         return alarm_response
@@ -188,9 +188,8 @@ class SOSAccessClient:
         """
         out_data = self.ping_request_schema.dump(ping_request)
         logger.debug(f'Sending SOS Access data: {out_data}')
-        in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received SOS Access data: {in_data}')
-        ping_response = self.ping_response_schema.load(in_data)
+        ping_response = self.transmit(out_data, self.ping_response_schema,
+                                      secondary=secondary)
         logger.info(f'Received {ping_response}')
         self._check_response_status(ping_response)
         return ping_response
@@ -218,18 +217,19 @@ class SOSAccessClient:
         """
         out_data = self.new_auth_request_schema.dump(new_auth_request)
         logger.debug(f'Sending SOS Access data: {out_data}')
-        in_data = self.transmit(out_data, secondary=secondary)
-        logger.debug(f'Received SOS Access data: {in_data}')
-        new_auth_response = self.new_auth_response_schema.load(in_data)
+        new_auth_response = self.transmit(out_data,
+                                          self.new_auth_response_schema,
+                                          secondary=secondary)
         logger.info(f'Received {new_auth_response}')
         self._check_response_status(new_auth_response)
         return new_auth_response
 
-    def transmit(self, data, secondary=False):
+    def transmit(self, data, response_schema, secondary=False):
         """
         Will create a TCP connection and send the request and received the
         response
         """
+
         if secondary:
             address = self.secondary_receiver_address
         else:
@@ -239,9 +239,30 @@ class SOSAccessClient:
 
         with TCPTransport(address, secure=self.use_tls) as transport:
             transport.connect()
+
             transport.send(data.encode(self.ENCODING))
-            response = transport.receive().decode(self.ENCODING)
-            return response
+
+            return self._receive(transport, response_schema)
+
+    def _receive(self, transport, response_schema, timeout=10):
+        """
+        Some alarm receivers will send the response in serveral packets.
+        Try and parse for each packet and if it doesnt work read some more.
+
+        """
+        in_data = ''
+        start_time = time.time()
+        duration = 0
+        while duration < timeout:
+            in_data = in_data + transport.receive().decode(self.ENCODING)
+            try:
+                response = response_schema.load(in_data)
+                return response
+            except XMLParseError:
+                duration = time.time() - start_time
+                continue
+
+        raise SOSAccessClientException('Reading response within timeout failed')
 
     @staticmethod
     def _check_response_status(response):

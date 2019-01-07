@@ -1,6 +1,8 @@
 import marshmallow
 from marshmallow.validate import Length, OneOf
 import xmltodict
+import xml
+from sos_access.exceptions import XMLParseError
 
 ALLOWED_STATUS_CODES = [0, 1, 2, 3, 4, 5, 7, 9, 10, 98, 99, 100, 101]
 
@@ -96,7 +98,7 @@ class AlarmResponse(SOSAccessRequest):
         return (f'{self.__class__.__name__}('
                 f'status={self.status}, '
                 f'info={self.info}, '
-                f'arrival_time={self.arrival_time}, '
+                f'arrival_time={self.arrival_time.isoformat()}, '
                 f'reference={self.reference})')
 
 
@@ -132,7 +134,7 @@ class NewAuthResponse(SOSAccessRequest):
                 f'new_authentication=<redacted>, '
                 f'status={self.status}, '
                 f'info={self.info}, '
-                f'arrival_time={self.arrival_time}, '
+                f'arrival_time={self.arrival_time.isoformat()}, '
                 f'reference={self.reference})')
 
 
@@ -164,7 +166,7 @@ class PingResponse(SOSAccessRequest):
         return (f'{self.__class__.__name__}('
                 f'status={self.status}, '
                 f'info={self.info}, '
-                f'arrival_time={self.arrival_time}, '
+                f'arrival_time={self.arrival_time.isoformat()}, '
                 f'reference={self.reference})')
 
 
@@ -207,17 +209,25 @@ class SOSAccessSchema(marshmallow.Schema):
 
     @marshmallow.pre_load()
     def load_xml(self, data):
-        # incoming XML
-        parsed_data = xmltodict.parse(data)
-        # remove envelope
-        return parsed_data[self.__envelope__]
+        try:
+            # incoming XML
+            parsed_data = xmltodict.parse(data)
+            # remove envelope
+            in_data = parsed_data[self.__envelope__]
+        except xml.parsers.expat.ExpatError as e:
+            raise XMLParseError from e
+        return in_data
 
     @marshmallow.post_dump()
     def dump_xml(self, data):
         # add the envelope
         data_to_dump = {self.__envelope__: data}
         # make xml
-        return xmltodict.unparse(data_to_dump)
+        try:
+            out_data = xmltodict.unparse(data_to_dump)
+        except xml.parsers.expat.ExpatError as e:
+            raise XMLParseError from e
+        return out_data
 
     @marshmallow.post_load()
     def make_object(self, data):
@@ -250,10 +260,10 @@ class AlarmRequestSchema(SOSAccessSchema):
                                            validate=[Length(min=1, max=25)],
                                            data_key='eventcode')
     section = marshmallow.fields.String(allow_none=True,
-                                        validate=[Length(min=1, max=5)])
+                                        validate=[Length(min=1, max=5)], data_key='section')
     section_text = marshmallow.fields.String(allow_none=True,
                                              validate=[Length(min=1, max=40)],
-                                             data_key='sectionkey')
+                                             data_key='sectiontext')
     detector = marshmallow.fields.String(allow_none=True,
                                          validate=[Length(min=1, max=5)])
     detector_text = marshmallow.fields.String(allow_none=True,
@@ -261,9 +271,9 @@ class AlarmRequestSchema(SOSAccessSchema):
                                               data_key='detectortext')
     # Lines in additionalinfo is separated via CR+LF or LF. CR = 0x0a LF = 0x0d
     additional_info = marshmallow.fields.String(allow_none=True, validate=[
-        Length(min=1, max=2000)], data_key='additinalinfo', load_only=True)
+        Length(min=1, max=2000)], data_key='additionalinfo', load_only=True)
     additional_info_text = marshmallow.fields.String(allow_none=True, validate=[
-        Length(min=1, max=2000)], data_key='additinalinfo', dump_only=True)
+        Length(min=1, max=2000)], data_key='additionalinfo', dump_only=True)
 
     position = marshmallow.fields.Nested(PositionSchema, allow_none=True)
 
