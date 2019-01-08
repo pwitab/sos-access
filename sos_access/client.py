@@ -37,15 +37,24 @@ class SOSAccessClient:
     Client implementing the SOS Access v4 protocol to be used for sending Alarm
     Requests to alarm operators.
 
-    :param transmitter_code:
-    :param transmitter_type:
-    :param authentication:
-    :param receiver_id:
-    :param receiver_address:
-    :param secondary_receiver_address:
-    :param use_single_receiver:
-    :param use_tls:
+    :param str transmitter_code: The code that identifies the transmitter.
+        Supplied by alarm operator
+    :param str transmitter_type: The transmitter type.
+        Supplied by alarm operator
+    :param str authentication:  Password for the alarm transmitter.
+        Supplied by alarm operator
+    :param str receiver_id: ID for the receiving system. Needed for the
+        protocol, but might not be needed by the alarm operator.
+    :param (str, int) receiver_address: Tuple of host (IP or FQDN) and port
+    :param (str, int) secondary_receiver_address: Tuple of host (IP or FQDN)
+        and port
+    :param bool use_single_receiver:  To enable not
+        supplying secondary_receiver_address
+    :param bool use_tls:  Indicates if the transmission of alarm should be
+        encrypted using TLS. This library does not support SSLv3 since it is
+        insecure.
     """
+
     MAX_RETRY = 3
     ENCODING = 'latin-1'  # it is in the specs only to allow iso-8859-1
 
@@ -91,17 +100,20 @@ class SOSAccessClient:
         """
         Sends an alarm in the receiver.
 
-        :param event_code:
-        :param transmitter_time:
-        :param reference:
-        :param transmitter_area:
-        :param section:
-        :param section_text:
-        :param detector:
-        :param detector_text:
-        :param additional_info:
-        :param position:
-        :return:
+        :param str event_code: The event code of the alarm.
+        :param str transmitter_time: Time of the device or system sending the alarm
+        :param str reference:  A reference that will show up in logs on the
+            alarm receiver.
+        :param str transmitter_area:  Can be used to control different action at
+            the alarm operator on the same transmitter and event_code.
+        :param str section:  Section ID
+        :param str section_text: Section Description
+        :param str detector: Detector ID
+        :param str detector_text: Detector Description
+        :param str|dict|list|set|tuple additional_info: Extra information about alarm
+        :param str position: Position data
+
+        :return: :class:`AlarmResponse` from alarm receiver
         """
         alarm_request = AlarmRequest(event_code=event_code,
                                      transmitter_type=self.transmitter_type,
@@ -127,17 +139,24 @@ class SOSAccessClient:
         """
         Restores an alarm in the receiver.
 
-        :param event_code:
-        :param transmitter_time:
-        :param reference:
-        :param transmitter_area:
-        :param section:
-        :param section_text:
-        :param detector:
-        :param detector_text:
-        :param additional_info:
-        :param position:
-        :return:
+        :param str event_code: The event code of the alarm.
+        :param str transmitter_time: Time of the device or system sending the alarm
+        :param str reference:  A reference that will show up in logs on the
+            alarm receiver.
+        :param str transmitter_area:  Can be used to control different action at
+            the alarm operator on the same transmitter and event_code.
+        :param str section:  Section ID
+        :param str section_text: Section Description
+        :param str detector: Detector ID
+        :param str detector_text: Detector Description
+        :param str|dict|list|set|tuple additional_info: Extra information about alarm
+        :param str position: Position data
+
+        :return: :class:`AlarmResponse` from alarm receiver
+
+        .. todo::
+            Is all the extra fields necessary on alarm restore?
+
         """
         alarm_request = AlarmRequest(event_code=event_code,
                                      transmitter_type=self.transmitter_type,
@@ -159,6 +178,17 @@ class SOSAccessClient:
     @alternating_retry
     def _send_alarm(self, alarm_request: AlarmRequest,
                     secondary=False) -> AlarmResponse:
+        """
+        Sending function so it is wrappable with alternating_retry and we can
+        check the status of the response object
+
+        :param AlarmRequest alarm_request: The
+            :class:`AlarmRequest` to send.
+        :param bool secondary: Indicates if the secondary receiver should be
+            used. Is used by alternating_retry
+        :return: :class:`AlarmRequest`
+        """
+
         out_data = self.alarm_request_schema.dump(alarm_request)
         logger.debug(f'Sending SOS Access Data: {out_data}')
         alarm_response = self.transmit(out_data, self.alarm_response_schema,
@@ -171,6 +201,11 @@ class SOSAccessClient:
         """
         Sends a heart beat message to indicate to the alarm operator that
         the alarm device is still operational
+
+        :param str reference: Is used as reference for the request and can be
+            searched for in logs.
+
+        :return: :class:`PingResponse`
         """
 
         ping_request = PingRequest(authentication=self.authentication,
@@ -184,7 +219,14 @@ class SOSAccessClient:
     def _send_ping(self, ping_request: PingRequest,
                    secondary=False) -> PingResponse:
         """
-        To send ping request
+        Sending function so it is wrappable with alternating_retry and we can
+        check the status of the response object
+
+        :param PingRequest ping_request: The
+            :class:`PingRequest` to send.
+        :param bool secondary: Indicates if the secondary receiver should be
+            used. Is used by alternating_retry
+        :return: :class:`PingResponse`
         """
         out_data = self.ping_request_schema.dump(ping_request)
         logger.debug(f'Sending SOS Access data: {out_data}')
@@ -200,6 +242,11 @@ class SOSAccessClient:
         you can have a standard password when deploying devices but it is
         changed to something the alarm installer does not know when the alarm
         is operational
+
+        :param str reference: Is used as reference for the request and can be
+            searched for in logs.
+
+        :return: :class:`NewAuthResponse`
         """
 
         new_auth_request = NewAuthRequest(authentication=self.authentication,
@@ -213,7 +260,15 @@ class SOSAccessClient:
     def _send_request_new_auth(self, new_auth_request: NewAuthRequest,
                                secondary=False) -> NewAuthResponse:
         """
-        To send request new auth request
+        Sending function so it is wrappable with alternating_retry and we can
+        check the status of the response object
+
+        :param NewAuthRequest new_auth_request: The
+            :class:`NewAuthRequest` to send.
+        :param bool secondary: Indicates if the secondary receiver should be
+            used. Is used by alternating_retry
+
+        :return: :class:`NewAuthResponse`
         """
         out_data = self.new_auth_request_schema.dump(new_auth_request)
         logger.debug(f'Sending SOS Access data: {out_data}')
@@ -227,7 +282,12 @@ class SOSAccessClient:
     def transmit(self, data, response_schema, secondary=False):
         """
         Will create a TCP connection and send the request and received the
-        response
+        response and then close the TCP connection.
+
+        :param str data: The SOS Access XML data to be sent.
+        :param AlarmResponseSchema|PingResponseSchema|NewAuthResponseSchema response_schema: The
+            schema used to deserialize the response.
+        :param bool secondary: Indicates if to use the secondary receiver.
         """
 
         if secondary:
@@ -246,8 +306,13 @@ class SOSAccessClient:
 
     def _receive(self, transport, response_schema, timeout=10):
         """
-        Some alarm receivers will send the response in serveral packets.
+        Some alarm receivers will send the response in several packets.
         Try and parse for each packet and if it doesnt work read some more.
+
+        :param TCPTransport transport: The SOS Access XML data to be sent.
+        :param AlarmResponseSchema|PingResponseSchema|NewAuthResponseSchema response_schema: The
+            schema used to deserialize the response.
+        :param int timeout: Indicates how long to try and read more data.
 
         """
         in_data = ''
@@ -270,7 +335,8 @@ class SOSAccessClient:
         Checks the status of the response and raise appropriate errors if the
         request wasn't successful.
 
-        :param response:
+        :param AlarmResponse|PingResponse|NewAuthResponse response: Response object
+
         """
         # TODO: Test!
         if response.status == 1:
@@ -311,6 +377,11 @@ class SOSAccessClient:
 
 
 class TCPTransport:
+    """
+    A context manager for TCP sockets to make sure the are closed correctly.
+    Can create both secure and non secures sockets.
+
+    """
 
     def __init__(self, address, secure=False, timeout=5):
         self.address = address

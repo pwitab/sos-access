@@ -13,11 +13,17 @@ ALARM_TYPES = ['AL', 'RE']
 
 
 class SOSAccessRequest:
+    """Base SOS Access Request class"""
     pass
 
 
 class AlarmRequest(SOSAccessRequest):
 
+    """
+    Represents an AlarmRequest
+
+
+    """
     def __init__(self, event_code, transmitter_type, transmitter_code,
                  authentication, receiver, alarm_type=None,
                  transmitter_time=None, reference=None, transmitter_area=None,
@@ -87,6 +93,9 @@ class AlarmRequest(SOSAccessRequest):
 
 
 class AlarmResponse(SOSAccessRequest):
+    """
+    Represents an AlarmResponse
+    """
 
     def __init__(self, status, info, arrival_time=None, reference=None):
         self.reference = reference
@@ -103,6 +112,9 @@ class AlarmResponse(SOSAccessRequest):
 
 
 class NewAuthRequest(SOSAccessRequest):
+    """
+    Represents a NewAuthRequest
+    """
 
     def __init__(self, authentication, transmitter_code, transmitter_type,
                  reference=None):
@@ -120,6 +132,9 @@ class NewAuthRequest(SOSAccessRequest):
 
 
 class NewAuthResponse(SOSAccessRequest):
+    """
+    Represents a NewAuthResponse
+    """
 
     def __init__(self, status, info, new_authentication, arrival_time=None,
                  reference=None):
@@ -139,6 +154,9 @@ class NewAuthResponse(SOSAccessRequest):
 
 
 class PingRequest(SOSAccessRequest):
+    """
+    Represents a PingRequest
+    """
 
     def __init__(self, authentication, transmitter_code, transmitter_type,
                  reference=None):
@@ -156,6 +174,9 @@ class PingRequest(SOSAccessRequest):
 
 
 class PingResponse(SOSAccessRequest):
+    """
+    Represents a PingResponse
+    """
     def __init__(self, status, info, arrival_time=None, reference=None):
         self.reference = reference
         self.status = status
@@ -171,7 +192,10 @@ class PingResponse(SOSAccessRequest):
 
 
 class PositionSchema(marshmallow.Schema):
+
     """
+    Scheme declaring the serializing of position data.
+
     <pos> Geographical coordinate in the format
     RT90 (2,5 gon West):
     “xXXXXXXXyYYYYYYY”
@@ -204,6 +228,10 @@ class PositionSchema(marshmallow.Schema):
 
 
 class SOSAccessSchema(marshmallow.Schema):
+    """
+    Main Schema for serializing and deserializing SOS Access XML data
+    """
+
     __envelope__ = None
     __model__ = None
 
@@ -235,6 +263,10 @@ class SOSAccessSchema(marshmallow.Schema):
 
 
 class AlarmRequestSchema(SOSAccessSchema):
+    """
+    Schema for dumping and loading a AlarmRequest
+    """
+
     __envelope__ = 'alarmrequest'
     __model__ = AlarmRequest
 
@@ -285,6 +317,10 @@ class AlarmRequestSchema(SOSAccessSchema):
 
 
 class AlarmResponseSchema(SOSAccessSchema):
+    """
+    Schema for dumping and loading a AlarmResponse
+    """
+
     __envelope__ = 'alarmresponse'
     __model__ = AlarmResponse
 
@@ -305,6 +341,9 @@ class AlarmResponseSchema(SOSAccessSchema):
 # Request new authentication
 
 class NewAuthRequestSchema(SOSAccessSchema):
+    """
+    Schema for dumping and loading a NewAuthRequest
+    """
     __envelope__ = 'requestnewauthentication'
     __model__ = NewAuthRequest
 
@@ -326,6 +365,9 @@ class NewAuthRequestSchema(SOSAccessSchema):
 
 
 class NewAuthResponseSchema(SOSAccessSchema):
+    """
+    Schema for dumping and loading a NewAuthResponse
+    """
     __envelope__ = 'requestnewauthenticationresponse'
     __model__ = NewAuthResponse
 
@@ -350,6 +392,10 @@ class NewAuthResponseSchema(SOSAccessSchema):
 
 
 class PingRequestSchema(SOSAccessSchema):
+    """
+    Schema for dumping and loading a PingRequest
+    """
+
     __envelope__ = 'pingrequest'
     __model__ = PingRequest
 
@@ -371,6 +417,9 @@ class PingRequestSchema(SOSAccessSchema):
 
 
 class PingResponseSchema(SOSAccessSchema):
+    """
+    Schema for dumping and loading a PingResponse
+    """
     __envelope__ = 'pingresponse'
     __model__ = PingResponse
 
