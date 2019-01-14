@@ -8,7 +8,7 @@ alarm transmitters and receivers.
 
 Functions for monitoring the transmission link are included.
 
-It is an XML based protocol and nly printable 8-bits characters from
+It is an XML based protocol and only printable 8-bits characters from
 ISO8859-1 are allowed.
 
 The protocol consists of the following message types:
@@ -76,9 +76,6 @@ Alarm Requests  <alarmrequest>
 
 Element definitions
 ^^^^^^^^^^^^^^^^^^^
-
-<alarmrequest>
-   | Containing element of the alarm request
 
 <reference>
    |  OPTIONAL
@@ -193,13 +190,13 @@ Element definitions
          :caption: WGS84
 
          <position>
-            <pos>E597295E0176288</pos>
+            <pos>N597295E0176288</pos>
          </position>
 
 .. todo::
 
    Contact SOS Alarm and clarify what happens when an alarm transmitter has a
-   position in the recieving system but a different one is provided via the
+   position in the receiving system but a different one is provided via the
    alarm.
 
 
@@ -257,9 +254,6 @@ Alarm Response  <alarmresponse>
 
 Element definitions
 ^^^^^^^^^^^^^^^^^^^
-
-<alarmresponse>
-    |   Containing element of the alarm response
 
 <reference>
     |   OPTIONAL
@@ -326,7 +320,7 @@ alarm operators customer support for a new password.
 
 If the transmitter is replaced a new password is required from alarm operator.
 
-The change off passoword is requested with <requestnewauthentication> and the
+The change off password is requested with <requestnewauthentication> and the
 response <requestnewauthenticationresponse> is sent back containing the new
 password.
 
@@ -335,9 +329,6 @@ New Auth Request <requestnewauthentication>
 
 Element definitions
 ^^^^^^^^^^^^^^^^^^^
-
-<requestnewauthentication>
-    |   Containing element of the new auth request
 
 <authentication>
     |   15 Characters
@@ -377,9 +368,6 @@ New Auth Response <requestnewauthenticationresponse>
 
 Element definitions
 ^^^^^^^^^^^^^^^^^^^
-
-<requestnewauthenticationresponse>
-    |   Containing element of the new auth response
 
 <reference>
     |   1-50 Characters
@@ -443,13 +431,15 @@ Each service level requires that at least two heartbeat signals shall be sent
 within the interval.
 
 It is recommend that the transmitter sends at least three heartbeat signals per
-servicelevel time but no more than six.
+service level time but no more than six.
 
 
 .. todo::
 
     There is a protection if sending <pingrequest> very shortly a after each
-    other that the server responds with PING_TO_OFTEN. What is this exact timelimit? Contact SOS Alarm and ask.
+    other that the server responds with PING_TO_OFTEN. What is this exact
+    time limit since it doesn't seem to be bound to the service level?
+    Contact SOS Alarm and ask.
 
 If heartbeat signals is sent to frequent an error message will be replied in the
 ping request response (PING_TO_OFTEN).
@@ -467,9 +457,6 @@ Ping Request <pingrequest>
 
 Element definitions
 ^^^^^^^^^^^^^^^^^^^
-
-<pingrequest>
-    |   Containing element of the ping request
 
 <authentication>
     |   15 Characters
@@ -508,9 +495,6 @@ Ping Response <pingresponse>
 
 Element definitions
 ^^^^^^^^^^^^^^^^^^^
-
-<pingresponse>
-    |   Containing element of the ping response
 
 <reference>
     |   1-50 Characters

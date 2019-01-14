@@ -39,11 +39,6 @@ For creating clients that sends the alarms encrypted to the alarm receiver set u
         use_tls=True
         )
 
-.. note::
-
-    The client will make a new TCP session for every transmission so not to create a lot of
-    open sockets on the receiver.
-
 
 ===============
 Send an  Alarm
@@ -99,8 +94,6 @@ Ping is sent via the .ping() method.
 
 
 
-
-
 ==============================
 Change password of transmitter
 ==============================
@@ -132,7 +125,7 @@ The client implements a retry functionality between the primary and secondary
 alarm receiver.
 
 In the specification of the SOS Access v4 protocol there is nothing hindering
-the client from keep alternatly retrying each server for ever. But this is not
+the client from keep alternately retrying each server for ever. But this is not
 practical. The standard value of retry for the client is 3 times on each receiver.
 
 If you need to change this then subclass the client and change MAX_RETRY

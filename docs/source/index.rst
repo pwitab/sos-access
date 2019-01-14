@@ -9,6 +9,7 @@ Welcome to sos-access's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   :numbered:
 
    usage
    sos_access_protocol
