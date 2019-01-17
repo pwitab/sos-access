@@ -322,6 +322,7 @@ class SOSAccessClient:
             in_data = in_data + transport.receive().decode(self.ENCODING)
             try:
                 response = response_schema.load(in_data)
+                logger.debug(f'Received SOS Access Data: {in_data}')
                 return response
             except XMLParseError:
                 duration = time.time() - start_time
