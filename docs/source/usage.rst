@@ -33,7 +33,7 @@ For creating clients that sends the alarms encrypted to the alarm receiver set u
         transmitter_code='IK00001',
         transmitter_type='SV001',
         authentication='012345678912345',
-        receiver_address='alarm.example.com',
+        receiver_address=('alarm.example.com',1234),
         receiver_id='ALARM-OPER',
         use_single_receiver=True,
         use_tls=True
