@@ -236,9 +236,10 @@ class SOSAccessSchema(marshmallow.Schema):
     __model__ = None
 
     @marshmallow.pre_load()
-    def load_xml(self, data):
+    def load_xml(self, data, **kwargs):
         try:
             # incoming XML
+            print(data)
             parsed_data = xmltodict.parse(data)
             # remove envelope
             in_data = parsed_data[self.__envelope__]
@@ -247,7 +248,7 @@ class SOSAccessSchema(marshmallow.Schema):
         return in_data
 
     @marshmallow.post_dump()
-    def dump_xml(self, data):
+    def dump_xml(self, data, **kwargs):
         # add the envelope
         data_to_dump = {self.__envelope__: data}
         # make xml
@@ -258,7 +259,7 @@ class SOSAccessSchema(marshmallow.Schema):
         return out_data
 
     @marshmallow.post_load()
-    def make_object(self, data):
+    def make_object(self, data, **kwargs):
         return self.__model__(**data)
 
 
@@ -332,7 +333,7 @@ class AlarmResponseSchema(SOSAccessSchema):
                                      validate=[Length(min=1, max=255)])
     arrival_time = marshmallow.fields.DateTime(allow_none=True,
                                                data_key='arrivaltime',
-                                               format='rfc')
+                                               datetimeformat='rfc')
 
     class Meta:
         ordered = True
@@ -382,7 +383,7 @@ class NewAuthResponseSchema(SOSAccessSchema):
                                                    data_key='newauthentication')
     arrival_time = marshmallow.fields.DateTime(allow_none=True,
                                                data_key='arrivaltime',
-                                               format='rfc')
+                                               datetimeformat='rfc')
 
     class Meta:
         ordered = True
@@ -431,7 +432,7 @@ class PingResponseSchema(SOSAccessSchema):
                                      validate=[Length(min=1, max=255)])
     arrival_time = marshmallow.fields.DateTime(allow_none=True,
                                                data_key='arrivaltime',
-                                               format='rfc')
+                                               datetimeformat='rfc')
 
     class Meta:
         ordered = True

@@ -26,6 +26,16 @@ Fixed
 Security
 ^^^^^^^^
 
+0.0.6 (2020-02-06)
+==================
+
+Fixed
+^^^^^
+* Upgraded marshmallow to 3.4 and fixed version in installation. Fixes: #6
+
+Changed
+^^^^^^^
+* No exception logging in retry decorator since it creates noise in Sentry.
 
 
 0.0.5 (2019-01-07)

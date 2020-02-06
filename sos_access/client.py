@@ -309,7 +309,8 @@ class SOSAccessClient:
         Some alarm receivers will send the response in several packets.
         Try and parse for each packet and if it doesnt work read some more.
 
-        :param TCPTransport transport: The SOS Access XML data to be sent.
+        :param TCPTransport transport: the current transport that has a
+            connection to the alarm receiver
         :param AlarmResponseSchema|PingResponseSchema|NewAuthResponseSchema response_schema: The
             schema used to deserialize the response.
         :param int timeout: Indicates how long to try and read more data.

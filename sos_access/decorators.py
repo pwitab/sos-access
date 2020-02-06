@@ -32,7 +32,9 @@ def alternating_retry(func):
                 result = func(*args, **kwargs)
                 return result
             except fail_over_errors as e:
-                logger.exception(e)
+                logger.info(f'Failed to deliver message to one receiver. '
+                            f'Switching to the other'
+                            f'Error was {e}')
                 if not client.use_single_receiver:
                     use_secondary = not use_secondary  # toggle fail over
                 retry_count = retry_count + 1
