@@ -69,5 +69,6 @@ class TCPTransportError(Exception):
 class AlarmReceiverConnectionError(SOSAccessClientException):
     """Not possible to connect to the Alarm receivers specified"""
 
+
 class XMLParseError(Exception):
     """Problem parsing XML"""
