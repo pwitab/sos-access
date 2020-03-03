@@ -23,11 +23,11 @@ Example usage:
         transmitter_code='IK00001',
         transmitter_type='SV001',
         authentication='012345678912345',
-        receiver_address='alarm.example.com',
+        receiver_address=('alarm.example.com',1234),
         receiver_id='ALARM-OPER',
         use_single_receiver=True,
         use_tls=True
-        )
+    )
 
     client.send_alarm(event_code='AL')
 
