@@ -101,7 +101,8 @@ class SOSAccessClient:
         Sends an alarm in the receiver.
 
         :param str event_code: The event code of the alarm.
-        :param str transmitter_time: Time of the device or system sending the alarm
+        :param datetime.datetime transmitter_time: Time of the device or system sending
+            the alarm
         :param str reference:  A reference that will show up in logs on the
             alarm receiver.
         :param str transmitter_area:  Can be used to control different action at
