@@ -76,12 +76,13 @@ class AlarmRequest(SOSAccessRequest):
                 line = f'{key}: {value} \r\n'
                 if len(text + line) > max_length:
                     break
-                text = text + line  # TODO: Test
+                text = text + line
+            return text
 
         else:
             line = str(self.additional_info)
             if len(line) > max_length:
-                line = line[:1997]  # TODO: Test
+                line = line[:1997]
             return line
 
     def __repr__(self):
