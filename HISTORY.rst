@@ -22,6 +22,8 @@ Removed
 
 Fixed
 ^^^^^
+* Fixed #11. Error in docstring.
+* Fixed #10. additional_info on AlarmRequest as dict did not convert to string.
 
 Security
 ^^^^^^^^
