@@ -22,12 +22,18 @@ Removed
 
 Fixed
 ^^^^^
-* Fixed #11. Error in docstring.
-* Fixed #10. additional_info on AlarmRequest as dict did not convert to string.
-* Fixed #12. Encoding error when sending to some alarm receives.
 
 Security
 ^^^^^^^^
+
+0.0.7 (2020-03-06)
+==================
+
+Fixed
+^^^^^
+* Fixed #11. Error in docstring.
+* Fixed #10. additional_info on AlarmRequest as dict did not convert to string.
+* Fixed #12. Encoding error when sending to some alarm receives.
 
 0.0.6 (2020-02-06)
 ==================
