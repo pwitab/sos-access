@@ -24,6 +24,7 @@ Fixed
 ^^^^^
 * Fixed #11. Error in docstring.
 * Fixed #10. additional_info on AlarmRequest as dict did not convert to string.
+* Fixed #12. Encoding error when sending to some alarm receives.
 
 Security
 ^^^^^^^^
