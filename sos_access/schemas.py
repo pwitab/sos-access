@@ -271,8 +271,8 @@ class SOSAccessSchema(marshmallow.Schema):
     def load_xml(self, data, **kwargs):
         try:
             # incoming XML
-            print(data)
             parsed_data = xmltodict.parse(data)
+
             # remove envelope
             in_data = parsed_data[self.__envelope__]
         except xml.parsers.expat.ExpatError as e:
@@ -285,7 +285,10 @@ class SOSAccessSchema(marshmallow.Schema):
         data_to_dump = {self.__envelope__: data}
         # make xml
         try:
-            out_data = xmltodict.unparse(data_to_dump)
+            # the encoding is the same as latin-1 but if we specify latin-1 the xml
+            # header will say latin-1 too. to be compliant with SOS Alarm we use the
+            # text that their alarm server outputs.
+            out_data = xmltodict.unparse(data_to_dump, encoding="iso-8859-1")
         except xml.parsers.expat.ExpatError as e:
             raise XMLParseError from e
         return out_data
