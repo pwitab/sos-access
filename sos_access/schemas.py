@@ -160,7 +160,7 @@ class NewAuthResponse(SOSAccessRequest):
     """
 
     def __init__(
-        self, status, info, new_authentication, arrival_time=None, reference=None
+        self, status, info, new_authentication=None, arrival_time=None, reference=None
     ):
         self.reference = reference
         self.status = status
@@ -438,7 +438,7 @@ class NewAuthResponseSchema(SOSAccessSchema):
     )
     info = marshmallow.fields.String(required=True, validate=[Length(min=1, max=255)])
     new_authentication = marshmallow.fields.String(
-        required=True, validate=[Length(equal=15)], data_key="newauthentication"
+        required=False, validate=[Length(equal=15)], data_key="newauthentication"
     )
     arrival_time = marshmallow.fields.DateTime(
         allow_none=True, data_key="arrivaltime", datetimeformat="rfc"

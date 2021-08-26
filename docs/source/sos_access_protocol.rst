@@ -398,7 +398,7 @@ XML Examples <requestnewauthenticationresponse>
         <reference>46</reference>
         <status>0</status>
         <info>OK</info>
-        <authentication>8usedlb54a234md</authentication>
+        <newauthentication>8usedlb54a234md</newauthentication>
         <arrivaltime>2006-12-24 15:00:00</arrivaltime>
     </requestnewauthenticationresponse>
 
