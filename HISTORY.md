@@ -19,6 +19,13 @@ and this project adheres to `Semantic Versioning: https://semver.org/spec/v2.0.0
 ### Security
 
 
+## 0.0.8 (2021-08-26)
+
+### Fixed
+
+* Fixed #17. newauthentication should be optional since it is not in the data when a 
+  password change request was rejected due to wrong password
+
 ## 0.0.7 (2020-03-06)
 
 ### Fixed
