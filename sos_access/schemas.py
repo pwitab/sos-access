@@ -17,6 +17,17 @@ class SOSAccessRequest:
 
     pass
 
+# Custom DateTime field with specific format to match SOS Access v4 spec, 0/23 char. Ex.”2002-05-28 11:35:20.022”
+class TransmitterDateTime(marshmallow.fields.DateTime):
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        return value.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        return super()._deserialize(value, attr, data, **kwargs)
 
 class AlarmRequest(SOSAccessRequest):
 
@@ -315,7 +326,7 @@ class AlarmRequestSchema(SOSAccessSchema):
     receiver = marshmallow.fields.String(
         required=True, validate=[Length(min=1, max=20)]
     )
-    transmitter_time = marshmallow.fields.DateTime(
+    transmitter_time = TransmitterDateTime(
         allow_none=True, data_key="transmittertime"
     )
     alarm_type = marshmallow.fields.String(
