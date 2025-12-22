@@ -14,7 +14,7 @@ REQUIRES_PYTHON = '>=3.6'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'marshmallow==3.4.0',
+    'marshmallow==3.26.2',
     'xmltodict']
 
 # What packages are optional?
